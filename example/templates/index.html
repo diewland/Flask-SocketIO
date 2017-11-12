@@ -33,6 +33,7 @@
                 $('#log').append('<br>' + $('<div/>').text('Received #' + msg.count + ': ' + msg.data).html());
             });
 
+            /*
             // Interval function that tests message latency by sending a "ping"
             // message. The server then responds with a "pong" message and the
             // round trip time is measured.
@@ -83,6 +84,7 @@
                 socket.emit('close_room', {room: $('#close_room').val()});
                 return false;
             });
+            */
             $('form#disconnect').submit(function(event) {
                 socket.emit('disconnect_request');
                 return false;
@@ -93,6 +95,7 @@
 <body>
     <h1>Flask-SocketIO Test</h1>
     <p>Async mode is: <b>{{ async_mode }}</b></p>
+    <!--
     <p>Average ping/pong latency: <b><span id="ping-pong"></span>ms</b></p>
     <h2>Send:</h2>
     <form id="emit" method="POST" action='#'>
@@ -120,6 +123,7 @@
         <input type="text" name="close_room" id="close_room" placeholder="Room Name">
         <input type="submit" value="Close Room">
     </form>
+    -->
     <form id="disconnect" method="POST" action="#">
         <input type="submit" value="Disconnect">
     </form>
