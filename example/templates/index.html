@@ -5,6 +5,7 @@
     <script type="text/javascript" src="//code.jquery.com/jquery-1.4.2.min.js"></script>
     <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.5/socket.io.min.js"></script>
     <script type="text/javascript" charset="utf-8">
+        /*
         $(document).ready(function() {
             // Use a "/test" namespace.
             // An application can open a connection on multiple namespaces, and
@@ -33,7 +34,6 @@
                 $('#log').append('<br>' + $('<div/>').text('Received #' + msg.count + ': ' + msg.data).html());
             });
 
-            /*
             // Interval function that tests message latency by sending a "ping"
             // message. The server then responds with a "pong" message and the
             // round trip time is measured.
@@ -84,18 +84,15 @@
                 socket.emit('close_room', {room: $('#close_room').val()});
                 return false;
             });
-            */
-            $('form#disconnect').submit(function(event) {
-                socket.emit('disconnect_request');
-                return false;
-            });
         });
+        */
     </script>
 </head>
 <body>
+    <h1>Record stream audio</h1>
+    <!--
     <h1>Flask-SocketIO Test</h1>
     <p>Async mode is: <b>{{ async_mode }}</b></p>
-    <!--
     <p>Average ping/pong latency: <b><span id="ping-pong"></span>ms</b></p>
     <h2>Send:</h2>
     <form id="emit" method="POST" action='#'>
@@ -124,10 +121,90 @@
         <input type="submit" value="Close Room">
     </form>
     -->
+    <form id="connect" method="POST" action="#">
+        <input type="submit" value="Record">
+    </form>
     <form id="disconnect" method="POST" action="#">
-        <input type="submit" value="Disconnect">
+        <input type="submit" value="Stop">
     </form>
     <h2>Receive:</h2>
     <div id="log"></div>
+    <script>
+      var namespace = '/test';
+      var socket = null;
+      var mediaStream = null;
+      var recording = false;
+
+      // audio functions
+      function initializeRecorder(stream){
+
+         // https://stackoverflow.com/a/42360902/466693
+         mediaStream = stream;
+         mediaStream.stop = function () {
+             this.getAudioTracks().forEach(function (track) {
+                 track.stop();
+             });
+         };
+
+         audio_context = new AudioContext;
+         sampleRate = audio_context.sampleRate;
+         var audioInput = audio_context.createMediaStreamSource(stream);
+
+         console.log("Created media stream.");
+
+         var bufferSize = 4096;
+         // record only 1 channel
+         var recorder = audio_context.createScriptProcessor(bufferSize, 1, 1);
+         // specify the processing function
+         recorder.onaudioprocess = recorderProcess;
+         // connect stream to our recorder
+         audioInput.connect(recorder);
+         // connect our recorder to the previous destination
+         recorder.connect(audio_context.destination);
+      }
+      function errorCallback(a, b, c){
+        console.error(a, b, c);
+      }
+      function recorderProcess(e) {
+        if(recording){
+          var left = e.inputBuffer.getChannelData(0);
+          socket.emit('audio', left);
+          //socket.emit('audio', convertFloat32ToInt16(left));
+        }
+      }
+      function convertFloat32ToInt16(buffer) {
+        l = buffer.length;
+        buf = new Int16Array(l);
+        while (l--) {
+          buf[l] = Math.min(1, buffer[l])*0x7FFF;
+        }
+        return buf.buffer;
+      }
+
+      $('form#connect').submit(function(event) {
+          if(socket == null){
+            socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port + namespace);
+            socket.on('connect', function() {
+                socket.emit('my_event', {data: 'I\'m connected!'});
+                recording = true;
+                navigator.getUserMedia({audio: true}, initializeRecorder, errorCallback);
+            });
+            socket.on('my_response', function(msg) {
+                $('#log').append('<br>' + $('<div/>').text('Received #' + msg.count + ': ' + msg.data).html());
+            });
+          }
+          else {
+            socket.disconnect();
+            socket.connect();
+          }
+          return false;
+      });
+      $('form#disconnect').submit(function(event) {
+          recording = false;
+          mediaStream.stop();
+          socket.emit('disconnect_request');
+          return false;
+      });
+    </script>
 </body>
 </html>

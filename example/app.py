@@ -1,8 +1,11 @@
 #!/usr/bin/env python
-from threading import Lock
+#from threading import Lock
 from flask import Flask, render_template, session, request
-from flask_socketio import SocketIO, emit, join_room, leave_room, \
-    close_room, rooms, disconnect
+from flask_socketio import SocketIO, emit, disconnect#, join_room, leave_room, close_room, rooms
+
+import scipy.io.wavfile
+import numpy
+from collections import OrderedDict
 
 # Set this variable to "threading", "eventlet" or "gevent" to test the
 # different async modes, or leave it set to None for the application to choose
@@ -11,9 +14,10 @@ async_mode = None
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
-socketio = SocketIO(app, async_mode=async_mode)
-thread = None
-thread_lock = Lock()
+socketio = SocketIO(app, binary=True)
+#socketio = SocketIO(app, async_mode=async_mode)
+#thread = None
+#thread_lock = Lock()
 
 
 #def background_thread():
@@ -29,7 +33,7 @@ thread_lock = Lock()
 
 @app.route('/')
 def index():
-    return render_template('index.html', async_mode=socketio.async_mode)
+    return render_template('index.html')
 
 
 @socketio.on('my_event', namespace='/test')
@@ -101,11 +105,17 @@ def test_connect():
     #with thread_lock:
     #    if thread is None:
     #        thread = socketio.start_background_task(target=background_thread)
+    session['audio'] = []
     emit('my_response', {'data': 'Connected', 'count': 0})
 
 
+@socketio.on('audio', namespace='/test')
+def handle_my_custom_event(audio):
+    session['audio'] += OrderedDict(sorted(audio.items(), key=lambda t:int(t[0]))).values()
+
 @socketio.on('disconnect', namespace='/test')
 def test_disconnect():
+    scipy.io.wavfile.write('out.wav', 44100, numpy.array(session['audio']))
     print('Client disconnected', request.sid)
 
 
